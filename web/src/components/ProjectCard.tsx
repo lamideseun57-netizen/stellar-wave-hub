@@ -17,8 +17,14 @@ interface ProjectCardProps {
     username?: string;
     logo_url?: string;
     stellar_contract_id?: string;
+    rating_velocity?: number;
+    created_at?: string;
   };
   index?: number;
+  badge?: {
+    label: string;
+    variant?: "solar" | "aurora" | "nova" | "plasma";
+  };
 }
 
 const categoryColors: Record<string, string> = {
@@ -34,7 +40,7 @@ const categoryColors: Record<string, string> = {
   other: "tag-nova",
 };
 
-export default function ProjectCard({ project, index = 0 }: ProjectCardProps) {
+export default function ProjectCard({ project, index = 0, badge }: ProjectCardProps) {
   const colorClass = categoryColors[project.category?.toLowerCase()] || "tag-nova";
   const tags = project.tags ? project.tags.split(",").slice(0, 3) : [];
 
@@ -43,8 +49,8 @@ export default function ProjectCard({ project, index = 0 }: ProjectCardProps) {
       href={`/projects/${project.slug}`}
       className={`group relative glass glass-hover rounded-2xl p-6 flex flex-col gap-4 transition-all duration-300 animate-in animate-in-delay-${Math.min(index + 1, 5)}`}
     >
-      {/* Featured badge */}
-      {project.featured === 1 && (
+      {/* Featured badge or section badge */}
+      {project.featured === 1 ? (
         <div className="absolute -top-2 -right-2 featured-badge bg-solar/20 text-solar-bright text-xs font-bold px-2.5 py-1 rounded-full border border-solar/30 flex items-center gap-1">
           <svg
             width="12"
@@ -56,7 +62,48 @@ export default function ProjectCard({ project, index = 0 }: ProjectCardProps) {
           </svg>
           Featured
         </div>
-      )}
+      ) : badge ? (
+        <div
+          className={`absolute -top-2 -right-2 text-xs font-bold px-2.5 py-1 rounded-full border flex items-center gap-1 ${
+            badge.variant === "aurora"
+              ? "bg-aurora/20 text-aurora-bright border-aurora/30"
+              : badge.variant === "solar"
+              ? "bg-solar/20 text-solar-bright border-solar/30"
+              : badge.variant === "plasma"
+              ? "bg-plasma/20 text-plasma-bright border-plasma/30"
+              : "bg-nova/20 text-nova-bright border-nova/30"
+          }`}
+        >
+          {badge.variant === "solar" ? (
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+            </svg>
+          ) : badge.variant === "aurora" ? (
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+            </svg>
+          ) : null}
+          {badge.label}
+        </div>
+      ) : null}
 
       {/* Header */}
       <div className="flex items-start gap-3">
