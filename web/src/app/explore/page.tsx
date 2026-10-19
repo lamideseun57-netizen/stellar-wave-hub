@@ -20,8 +20,10 @@ const CATEGORIES = [
 
 const SORT_OPTIONS = [
 	{value: "newest", label: "Newest"},
-	{value: "oldest", label: "Oldest"},
+	{value: "trending", label: "Trending"},
+	{value: "new-this-week", label: "New This Week"},
 	{value: "top-rated", label: "Top Rated"},
+	{value: "oldest", label: "Oldest"},
 ];
 
 interface Project {
