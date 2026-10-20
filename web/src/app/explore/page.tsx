@@ -26,6 +26,30 @@ const SORT_OPTIONS = [
 	{value: "oldest", label: "Oldest"},
 ];
 
+const DEFAULT_SORT = "newest";
+const DEFAULT_LIMIT = 12;
+
+function normalizeCategory(value: string | null): string {
+	if (!value) return "All";
+	const match = CATEGORIES.find(
+		(c) => c.toLowerCase() === value.toLowerCase(),
+	);
+	return match ?? "All";
+}
+
+function normalizeSort(value: string | null): string {
+	if (!value) return DEFAULT_SORT;
+	return SORT_OPTIONS.some((o) => o.value === value)
+		? value
+		: DEFAULT_SORT;
+}
+
+function normalizePage(value: string | null): number {
+	const parsed = parseInt(value ?? "", 10);
+	if (!Number.isFinite(parsed) || parsed < 1) return 1;
+	return parsed;
+}
+
 interface Project {
 	id: number;
 	name: string;
@@ -53,59 +77,99 @@ function ExplorePageContent() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+	const queryString = searchParams.toString();
 
 	const [projects, setProjects] = useState<Project[]>([]);
 	const [pagination, setPagination] = useState<Pagination>({
 		page: 1,
-		limit: 12,
+		limit: DEFAULT_LIMIT,
 		total: 0,
 		pages: 0,
 	});
-	const [category, setCategory] = useState("All");
+	const [category, setCategory] = useState("");
 	const [search, setSearch] = useState("");
-	const [sort, setSort] = useState("newest");
-	const [substantialOnly, setSubstantialOnly] = useState(
-		() => searchParams.get("substantial") === "true",
-	);
+	const [sort, setSort] = useState("");
+	const [substantialOnly, setSubstantialOnly] = useState(false);
+	const [page, setPage] = useState(1);
 	const [loading, setLoading] = useState(true);
+	const [httpPage, setHttpPage] = useState(1);
+
+	// Sync state from the URL whenever the query string changes (initial load,
+	// back/forward navigation, or external link).
+	useEffect(() => {
+		const params = new URLSearchParams(queryString);
+		setCategory(normalizeCategory(params.get("category")));
+		setSearch(params.get("search") ?? "");
+		setSort(normalizeSort(params.get("sort")));
+		setSubstantialOnly(params.get("substantial") === "true");
+		setPage(normalizePage(params.get("page")));
+	}, [queryString]);
+
+	// Mirror the current filter state into the URL (shallow) whenever it changes.
+	useEffect(() => {
+		if (!category || !sort) return; // wait until URL sync has hydrated state
+		const params = new URLSearchParams();
+		if (category !== "All") params.set("category", category.toLowerCase());
+		if (search) params.set("search", search);
+		if (sort !== DEFAULT_SORT) params.set("sort", sort);
+		if (substantialOnly) params.set("substantial", "true");
+		if (page > 1) params.set("page", String(page));
+
+		const nextQuery = params.toString();
+		if (nextQuery === queryString) return;
+
+		router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+			scroll: false,
+		});
+	}, [queryString, category, search, sort, substantialOnly, page, pathname, router]);
 
 	const fetchProjects = useCallback(async () => {
+		if (!category || !sort) return; // wait for URL hydration
 		setLoading(true);
 		const params = new URLSearchParams();
 		if (category !== "All") params.set("category", category.toLowerCase());
 		if (search) params.set("search", search);
 		if (substantialOnly) params.set("substantial", "true");
 		params.set("sort", sort);
-		params.set("page", String(pagination.page));
-		params.set("limit", "12");
+		params.set("page", String(page));
+		params.set("limit", String(DEFAULT_LIMIT));
 
 		try {
-			const res = await fetch(`/api/projects?${params}`);
+			const res = await fetch(`/api/projects?${params}`, {
+				cache: "no-store",
+			});
 			const data = await res.json();
 			setProjects(data.projects || []);
 			setPagination((prev) => ({...prev, ...data.pagination}));
+			setHttpPage(data.pagination?.page ?? page);
 		} catch {
 			setProjects([]);
 		}
 		setLoading(false);
-	}, [category, search, sort, substantialOnly, pagination.page]);
+	}, [category, search, sort, substantialOnly, page]);
 
 	useEffect(() => {
 		fetchProjects();
 	}, [fetchProjects]);
 
 	const toggleSubstantial = () => {
-		const next = !substantialOnly;
-		setSubstantialOnly(next);
-		setPagination((p) => ({...p, page: 1}));
-
-		const newParams = new URLSearchParams(searchParams.toString());
-		if (next) newParams.set("substantial", "true");
-		else newParams.delete("substantial");
-		router.replace(
-			newParams.toString() ? `${pathname}?${newParams}` : pathname,
-			{scroll: false},
-		);
+		setSubstantialOnly((next) => !next);
+		setPage(1);
+	};
+	const handleCategoryChange = (cat: string) => {
+		setCategory(cat);
+		setPage(1);
+	};
+	const handleSearchChange = (value: string) => {
+		setSearch(value);
+		setPage(1);
+	};
+	const handleSortChange = (value: string) => {
+		setSort(value);
+		setPage(1);
+	};
+	const handlePageChange = (nextPage: number) => {
+		setPage(nextPage);
 	};
 
 	return (
@@ -120,7 +184,6 @@ function ExplorePageContent() {
 				</p>
 			</div>
 
-			{/* Filters */}
 			<div className="flex flex-col lg:flex-row gap-4 mb-8 animate-in animate-in-delay-1">
 				{/* Search */}
 				<div className="relative flex-1">
@@ -134,29 +197,26 @@ function ExplorePageContent() {
 						strokeWidth="2"
 						strokeLinecap="round"
 						strokeLinejoin="round"
-					>
+						>
 						<circle cx="11" cy="11" r="8" />
 						<path d="m21 21-4.3-4.3" />
 					</svg>
-					<input
+						<input
 						type="text"
 						placeholder="Search projects..."
 						className="input-field !pl-11"
 						value={search}
-						onChange={(e) => {
-							setSearch(e.target.value);
-							setPagination((p) => ({...p, page: 1}));
-						}}
+						onChange={(e) => handleSearchChange(e.target.value)}
 					/>
 				</div>
 
 				{/* Sort */}
 				<select
 					value={sort}
-					onChange={(e) => setSort(e.target.value)}
+					onChange={(e) => handleSortChange(e.target.value)}
 					className="input-field !w-auto !pr-10 appearance-none cursor-pointer"
 					style={{
-						backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237c7893' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+						backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237c7893' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d'm16 9 6 6 6-6'/%3E%3C/svg%3E")`,
 						backgroundRepeat: "no-repeat",
 						backgroundPosition: "right 12px center",
 					}}
@@ -177,7 +237,7 @@ function ExplorePageContent() {
 						substantialOnly
 							? "bg-nova text-white glow-nova"
 							: "bg-stardust/50 text-moonlight hover:bg-stardust hover:text-starlight"
-					}`}
+					}`.trim()}
 				>
 					<svg
 						width="14"
@@ -188,7 +248,7 @@ function ExplorePageContent() {
 						strokeWidth="2"
 						strokeLinecap="round"
 						strokeLinejoin="round"
-					>
+						>
 						<polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
 					</svg>
 					Substantial only
@@ -200,18 +260,15 @@ function ExplorePageContent() {
 				{CATEGORIES.map((cat) => (
 					<button
 						key={cat}
-						onClick={() => {
-							setCategory(cat);
-							setPagination((p) => ({...p, page: 1}));
-						}}
+						onClick={() => handleCategoryChange(cat)}
 						className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
 							category === cat
 								? "bg-nova text-white glow-nova"
-								: "bg-stardust/50 text-moonlight hover:bg-stardust hover:text-starlight"
-						}`}
-					>
+							: "bg-stardust/50 text-moonlight hover:bg-stardust hover:text-starlight"
+						}`.trim()}
+						>
 						{cat}
-					</button>
+						</button>
 				))}
 			</div>
 
@@ -239,13 +296,8 @@ function ExplorePageContent() {
 						<div className="flex items-center justify-center gap-2 mt-12">
 							<button
 								disabled={pagination.page <= 1}
-								onClick={() =>
-									setPagination((p) => ({
-										...p,
-										page: p.page - 1,
-									}))
-								}
-								className="btn-ghost !py-2 !px-3 disabled:opacity-30 disabled:cursor-not-allowed"
+								onClick={() => handlePageChange(pagination.page - 1)}
+							className="btn-ghost !py-2 !px-3 disabled:opacity-30 disabled:cursor-not-allowed"
 							>
 								<svg
 									width="16"
@@ -263,13 +315,8 @@ function ExplorePageContent() {
 							</span>
 							<button
 								disabled={pagination.page >= pagination.pages}
-								onClick={() =>
-									setPagination((p) => ({
-										...p,
-										page: p.page + 1,
-									}))
-								}
-								className="btn-ghost !py-2 !px-3 disabled:opacity-30 disabled:cursor-not-allowed"
+								onClick={() => handlePageChange(pagination.page + 1)}
+							className="btn-ghost !py-2 !px-3 disabled:opacity-30 disabled:cursor-not-allowed"
 							>
 								<svg
 									width="16"
@@ -304,7 +351,7 @@ function ExplorePageContent() {
 						No projects found
 					</h3>
 					<p className="text-ash">
-						Try adjusting your search or filters
+						Some projects may not be available yet. Try adjusting your search or filters.
 					</p>
 				</div>
 			)}
