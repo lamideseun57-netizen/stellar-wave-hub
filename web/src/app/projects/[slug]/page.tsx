@@ -282,6 +282,25 @@ export default function ProjectDetailPage({
 	const feeLabel = formatFee(onChainActive ? contractRatingFee : null);
 	const canRate = user && user.id !== project.user_id && !alreadyRatedOnChain;
 
+	// Average sub-scores across ratings, ignoring null/undefined values.
+	const subScoreAverages = (() => {
+		const fields = ["purpose_score", "innovation_score", "usability_score"] as const;
+		const result: Record<(typeof fields)[number], number | null> = {
+			purpose_score: null,
+			innovation_score: null,
+			usability_score: null,
+		};
+		for (const field of fields) {
+			const values = ratings
+				.map((r) => r[field])
+				.filter((v): v is number => typeof v === "number" && !Number.isNaN(v));
+			if (values.length > 0) {
+				result[field] = values.reduce((sum, v) => sum + v, 0) / values.length;
+			}
+		}
+		return result;
+	})();
+
 	return (
 		<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 			{/* Header */}
@@ -348,6 +367,36 @@ export default function ProjectDetailPage({
 						</div>
 					)}
 				</div>
+
+				{/* Sub-score summary bars */}
+				{ratings.length > 0 && (
+					<div className="mt-5 space-y-2.5 max-w-md">
+						{(
+							[
+								{label: "Purpose", value: subScoreAverages.purpose_score},
+								{label: "Innovation", value: subScoreAverages.innovation_score},
+								{label: "Usability", value: subScoreAverages.usability_score},
+							] as const
+						).map((item) => (
+							<div key={item.label} className="flex items-center gap-3">
+								<span className="text-xs font-medium text-ash w-20 shrink-0">
+									{item.label}
+								</span>
+								<div className="flex-1 h-2 bg-dust/40 rounded-full overflow-hidden">
+									<div
+										className="h-full bg-gradient-to-r from-nova to-plasma rounded-full transition-all"
+										style={{
+											width: `${((item.value ?? 0) / 5) * 100}%`,
+										}}
+									/>
+								</div>
+								<span className="text-xs font-mono text-nova-bright font-semibold w-8 text-right shrink-0">
+									{item.value === null ? "—" : item.value.toFixed(1)}
+								</span>
+							</div>
+						))}
+					</div>
+				)}
 
 				{/* Links */}
 				<div className="flex gap-3 mt-5 flex-wrap">
