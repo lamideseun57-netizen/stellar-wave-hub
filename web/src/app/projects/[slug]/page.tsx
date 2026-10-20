@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect, useState, use} from "react";
+import dynamic from "next/dynamic";
 import {useAuth} from "@/context/AuthContext";
 import StarRating from "@/components/StarRating";
 import Link from "next/link";
@@ -64,6 +65,8 @@ interface FinancialSummary {
 		balance: string;
 	}[];
 }
+
+const ProjectQr = dynamic(() => import("@/components/ProjectQr"), {ssr: false});
 
 function stellarExplorerBase(network?: string) {
 	return network === "testnet"
@@ -406,6 +409,14 @@ export default function ProjectDetailPage({
 					{project.stellar_contract_id && (
 						<StellarAddressLink address={project.stellar_contract_id} type="contract" network={project.stellar_network} />
 					)}
+				</div>
+
+				{/* QR code for event booths and slides */}
+				<div className="mt-6">
+					<ProjectQr
+						url={typeof window !== "undefined" ? window.location.href : `/projects/${project.slug}`}
+						name={project.name}
+					/>
 				</div>
 			</div>
 
