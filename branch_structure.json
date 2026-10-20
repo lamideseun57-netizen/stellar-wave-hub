@@ -1,0 +1,27 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "fix/issue-208-sort-filter-persistence-in-the-url-on-explore",
+    "fix/issue-522-sub-score-summary-bars",
+    "fix/issue-525-qr-code-for-a-project-page",
+    "fix/issue-536-leaderboard-of-top-contributors",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "fix/issue-208-sort-filter-persistence-in-the-url-on-explore": "main",
+    "fix/issue-522-sub-score-summary-bars": "main",
+    "fix/issue-525-qr-code-for-a-project-page": "main",
+    "fix/issue-536-leaderboard-of-top-contributors": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "fix/issue-208-sort-filter-persistence-in-the-url-on-explore",
+    "fix/issue-522-sub-score-summary-bars",
+    "fix/issue-525-qr-code-for-a-project-page",
+    "fix/issue-536-leaderboard-of-top-contributors",
+    "origin"
+  ]
+}
